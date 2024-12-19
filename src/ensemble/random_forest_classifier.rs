@@ -526,25 +526,30 @@ impl<TX: FloatNumber + PartialOrd, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY
         Ok(result)
     }
 
+    /// Get trained classes
+    /// Get raw scores for each class normalized for range 0-1
+    pub fn get_classes(&self) -> Option<&Vec<TY>> {
+        self.classes.as_ref()
+    }
+
     /// Predict porba class for `x`
     /// Get raw scores for each class normalized for range 0-1
     pub fn predict_proba(&self, x: &X) -> Result<Vec<Vec<f64>>, Failed> {
         let mut result = vec![vec![0.0; self.classes.as_ref().unwrap().len()]; x.shape().0];
 
-        let (n, _) = x.shape();
         let tree_count = self.trees.as_ref().unwrap().len() as f64;
 
-        for i in 0..n {
+        for (i, row_result) in result.iter_mut().enumerate() {
             let mut max = 1.0;
             for tree in self.trees.as_ref().unwrap().iter() {
                 let predicted_class = tree.predict_for_row(x, i);
-                result[i][predicted_class] += 1.0;
-                if result[i][predicted_class] > max {
-                    max = result[i][predicted_class];
+                row_result[predicted_class] += 1.0;
+                if row_result[predicted_class] > max {
+                    max = row_result[predicted_class];
                 }
             }
 
-            result[i].iter_mut().for_each(|x| *x /= tree_count);
+            row_result.iter_mut().for_each(|x| *x /= tree_count);
         }
 
         Ok(result)

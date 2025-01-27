@@ -528,6 +528,30 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
         }
         Ok(result)
     }
+    
+    /// Predict porba class for `x`
+    /// Get raw scores for each class normalized for range 0-1
+    pub fn predict_proba(&self, x: &X) -> Result<Vec<Vec<TX>>, Failed> {
+        let mut result = vec![vec![TX::from_i32(0).unwrap(); self.classes.as_ref().unwrap().len()]; x.shape().0];
+        let n = x.shape().0;
+        // let mut result = Y::zeros(n);
+        if self.num_classes == 2 {
+            let y_hat = x.ab(false, self.coefficients(), true);
+            let intercept = *self.intercept().get((0, 0));
+            for (i, y_hat_i) in y_hat.iterator(0).enumerate().take(n) {
+                result[i][0] = <TX as RealNumber>::half() - RealNumber::sigmoid(*y_hat_i + intercept);
+                result[i][1] = RealNumber::sigmoid(*y_hat_i + intercept) - RealNumber::half();
+            }
+        } else {
+            let y_hat = x.matmul(&self.coefficients().transpose());
+            for r in 0..n {
+                for c in 0..self.num_classes {
+                    result[r][c] = *y_hat.get((r, c)) + *self.intercept().get((c, 0));
+                }
+            }
+        }
+        Ok(result)
+    }
 
     /// Get estimates regression coefficients, this create a sharable reference
     pub fn coefficients(&self) -> &X {
